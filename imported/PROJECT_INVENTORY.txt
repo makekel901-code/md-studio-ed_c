@@ -1,0 +1,96 @@
+MD Studio source inventory — alpha09 update
+Generated from the current source tree. PocketBuilder APK is retained only as a legacy analysis reference.
+
+.github/workflows/mdstudio-build.yml
+.gitignore
+PROJECT_INVENTORY.txt
+README.md
+app/build.gradle.kts
+app/src/main/AndroidManifest.xml
+app/src/main/java/com/amd/mdstudio/MainActivity.kt
+app/src/main/java/com/amd/mdstudio/TermuxResultService.kt
+app/src/main/java/com/amd/mdstudio/ai/EncryptedSecret.kt
+app/src/main/java/com/amd/mdstudio/ai/GeminiKeyStore.kt
+app/src/main/java/com/amd/mdstudio/ai/GeminiRouter.kt
+app/src/main/java/com/amd/mdstudio/engine/EngineRegistry.kt
+app/src/main/java/com/amd/mdstudio/engine/EngineRuntime.kt
+app/src/main/java/com/amd/mdstudio/engine/agent/AgentExecutionEngine.kt
+app/src/main/java/com/amd/mdstudio/engine/ai/GeminiAiModelAdapter.kt
+app/src/main/java/com/amd/mdstudio/engine/build/BuildCoordinator.kt
+app/src/main/java/com/amd/mdstudio/engine/build/GitHubActionsBuildProvider.kt
+app/src/main/java/com/amd/mdstudio/engine/build/LocalBuildProvider.kt
+app/src/main/java/com/amd/mdstudio/engine/core/EngineContracts.kt
+app/src/main/java/com/amd/mdstudio/engine/device/DeviceInfoEngine.kt
+app/src/main/java/com/amd/mdstudio/engine/integrations/ServiceIntegrationEngines.kt
+app/src/main/java/com/amd/mdstudio/engine/libraries/LibraryEngine.kt
+app/src/main/java/com/amd/mdstudio/engine/libraries/MavenCentralCatalogProvider.kt
+app/src/main/java/com/amd/mdstudio/engine/project/AiProjectGenerator.kt
+app/src/main/java/com/amd/mdstudio/engine/project/AndroidProjectScaffolder.kt
+app/src/main/java/com/amd/mdstudio/engine/runtime/AndroidRuntimeDevicePort.kt
+app/src/main/java/com/amd/mdstudio/engine/runtime/RuntimeValidationEngine.kt
+app/src/main/java/com/amd/mdstudio/engine/workspace/WorkspaceEngine.kt
+app/src/main/java/com/amd/mdstudio/github/GitHubClient.kt
+app/src/main/java/com/amd/mdstudio/local/LocalBuildEngine.kt
+app/src/main/java/com/amd/mdstudio/local/LocalModelRegistry.kt
+app/src/main/java/com/amd/mdstudio/local/ProjectArchiveManager.kt
+app/src/main/java/com/amd/mdstudio/local/ProjectWorkspaceManager.kt
+app/src/main/java/com/amd/mdstudio/local/TermuxBuildBridge.kt
+app/src/main/java/com/amd/mdstudio/local/TermuxLlamaBridge.kt
+app/src/main/java/com/amd/mdstudio/ui/Theme.kt
+app/src/main/res/drawable/ic_md_studio_foreground.xml
+app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+app/src/main/res/values/ic_launcher_background.xml
+app/src/main/res/values/styles.xml
+app/src/main/res/xml/file_paths.xml
+build.gradle.kts
+docs/AMD_STUDIO_CORE_MIGRATION_AR.md
+docs/BUILD_AND_TEST_GUIDE_AR.md
+docs/BUILD_ENGINES_PHASE3_AR.md
+docs/DELIVERY_PHASE4_AR.md
+docs/ENGINE_IMPLEMENTATION_PHASE5_AR.md
+docs/ENGINE_TRANSFER_PHASE4_AR.md
+docs/FINAL_DELIVERY_STATUS_AR.md
+docs/IMPLEMENTATION_DELIVERY_V2_AR.md
+docs/IMPLEMENTATION_DELIVERY_V3_AR.md
+docs/LLAMA_CPP_STATUS_AR.md
+docs/MD_STUDIO_TARGET_SPEC_AR.md
+docs/MIGRATION_STATUS_AR.md
+docs/NEXT_PHASE_IMPLEMENTATION_AR.md
+docs/POCKETBUILDER_INITIAL_REPORT.md
+docs/POCKETBUILDER_SECOND_PASS.md
+docs/POCKETBUILDER_THIRD_PASS.md
+docs/engine-transfer/pocketbuilder-engine-class-map.json
+docs/toolchain/TOOLCHAIN_ZIP_LAYOUT_AR.md
+gradle.properties
+legacy-reference/PocketBuilder_0.145_original.apk
+legacy-reference/assets/Diagnostics.java
+legacy-reference/assets/PocketAbout.java
+legacy-reference/assets/scripts/build-pocket-app.sh
+legacy-reference/assets/scripts/setup-pocketbuilder-env.sh
+scripts/PHASE5_VALIDATION_NOTES_AR.md
+scripts/setup-llama-termux.sh
+scripts/setup-termux-mdstudio.sh
+scripts/validate-source.sh
+settings.gradle.kts
+
+alpha08: MD Studio product identity; AMD Studio developer identity; AI Studio remains tool-only. Adaptive launcher icon, persistent system/light/dark theme, engine status/requirements center, and AMD Studio capability migration matrix are included.
+
+alpha09: Project lifecycle states, persistent per-project event history, truthful build-result journaling, and secure-filtered ZIP backup export from the project list.
+
+Alpha09 follow-up update: isolated AI File Assistant workspaces, four independent file-execution ownership modes, manual file editing, AI draft preview and per-file approval, pre-write checkpoint and rollback, configurable accent palettes, central acceptance criteria, and wired project ZIP/toolchain import launchers. See docs/AI_FILE_ASSISTANT_UPDATE_AR.md and docs/PRIOR_EXPERIMENTS_FEATURE_MERGE_AR.md.
+
+AI Operating Modes Update (Alpha 09):
+- app/src/main/java/com/amd/mdstudio/ai/AiOperatingMode.kt: shared operating modes, budget policy, and local token-usage ledger.
+- app/src/main/java/com/amd/mdstudio/engine/ai/GeminiAiModelAdapter.kt: applies the selected mode and budget to agent model requests.
+- app/src/main/java/com/amd/mdstudio/engine/agent/AgentExecutionEngine.kt: bounded repair rounds after approved execution failures; registered-tool validation and checkpoints retained.
+- app/src/main/java/com/amd/mdstudio/ai/GeminiRouter.kt: mode-aware prompts and Gemini usageMetadata accounting with estimated fallback.
+- MainActivity.kt: persisted mode/budget selectors and usage meter.
+- docs/AI_OPERATING_MODES_AR.md: behavior, budgets, safeguards, and verification limits.
+
+Alpha10 — current source update:
+- app/src/main/java/com/amd/mdstudio/local/ProjectDiagnostics.kt: read-only structural project checks; does not claim compilation success.
+- app/src/main/java/com/amd/mdstudio/local/ProjectRepairEngine.kt: targeted, user-approved AI repair drafts for existing failure-related files, with checkpoint and rollback.
+- ProjectArchiveManager.kt: safe handoff copy from AI file workspace to active Gradle build project.
+- MainActivity.kt: active-project local build, toolchain status, ZIP diagnostics, AI repair review/apply/rollback, and explicit assistant-to-builder handoff.
+- app/build.gradle.kts: versionCode 10, versionName 1.0.0-alpha10.
+- Local source repair tools are not claimed: local diagnostics are read-only and Gradle is the local compile/build tool. AI repair is offered only after a real Gradle compilation failure, not when the toolchain itself is missing or incompatible.
