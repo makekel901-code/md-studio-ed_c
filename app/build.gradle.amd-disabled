@@ -1,0 +1,45 @@
+// AMD Studio — the application module.
+plugins {
+    id 'org.jetbrains.kotlin.android'
+    id 'com.android.application'
+}
+
+android {
+    buildFeatures {
+        compose true
+    }
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+    namespace 'com.amd.mdstudio.github'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.amd.mdstudio.github'
+        minSdk 24
+        targetSdk 34
+        versionCode 10000
+        versionName '1.0.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation 'androidx.documentfile:documentfile:1.0.1'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'androidx.compose.material3:material3:1.3.1'
+    implementation 'androidx.compose.ui:ui:1.7.5'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:2.0.21'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+}
