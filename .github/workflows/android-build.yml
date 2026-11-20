@@ -1,0 +1,174 @@
+# amd-workflow-version: 6
+# AMD Studio: builds a real signed release APK with Gradle assembleRelease.
+# Signing values come from repository secrets only (Settings > Secrets and variables > Actions):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# No Variables are read. Missing secrets fail the job instead of shipping a debug APK.
+name: AMD Studio Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Check the four signing secrets
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          missing=""
+          if [ -z "$KS_B64" ]; then missing="$missing ANDROID_KEYSTORE_BASE64"; fi
+          if [ -z "$KS_PASS" ]; then missing="$missing ANDROID_KEYSTORE_PASSWORD"; fi
+          if [ -z "$KEY_ALIAS" ]; then missing="$missing ANDROID_KEY_ALIAS"; fi
+          if [ -z "$KEY_PASS" ]; then missing="$missing ANDROID_KEY_PASSWORD"; fi
+          if [ -n "$missing" ]; then
+            echo "::error::AMD signing secrets are missing:$missing"
+            echo 'This workflow builds a signed release APK and refuses to fall back to a debug signature.'
+            echo 'Add the missing repository secrets: Settings > Secrets and variables > Actions > New repository secret.'
+            echo 'AMD Studio > project > its signing key card > manual secrets steps lists the exact values.'
+            exit 1
+          fi
+          echo 'All four signing secrets are present.'
+
+      - name: Ensure the Gradle skeleton exists
+        run: |
+          set -e
+          if [ ! -f settings.gradle ] && [ ! -f settings.gradle.kts ]; then
+            echo 'AMD Studio: settings file was missing — writing settings.gradle.'
+            printf '%s\n' "pluginManagement {" "    repositories {" "        google()" "        mavenCentral()" "        gradlePluginPortal()" "    }" "}" "dependencyResolutionManagement {" "    repositories {" "        google()" "        mavenCentral()" "    }" "}" "rootProject.name = 'AndroidApp'" "include ':app'" > settings.gradle
+          fi
+          if [ -f settings.gradle ] && [ -f settings.gradle.kts ]; then
+            echo '::error::Both settings.gradle and settings.gradle.kts are in the repository; Gradle reads one of them and the other build settings are lost.'
+            exit 1
+          fi
+          if [ ! -f build.gradle ] && [ ! -f build.gradle.kts ]; then
+            printf '%s\n' "plugins {" "    id 'com.android.application' version '8.5.2' apply false" "}" > build.gradle
+          fi
+          if [ ! -f app/build.gradle ] && [ ! -f app/build.gradle.kts ]; then
+            echo '::error::app/build.gradle(.kts) is missing from the repository; AMD Studio on the phone writes it before uploading.'
+            exit 1
+          fi
+          if [ -f app/build.gradle ] && [ -f app/build.gradle.kts ]; then
+            echo '::error::Both app/build.gradle and app/build.gradle.kts are in the repository; Gradle reads one of them and the other dependencies are lost.'
+            exit 1
+          fi
+          MODULE=app/build.gradle
+          if [ -f app/build.gradle.kts ]; then MODULE=app/build.gradle.kts; fi
+          if ! grep -q 'com.android.application' "$MODULE"; then
+            echo "::error::$MODULE does not apply com.android.application; the uploaded project is incomplete."
+            exit 1
+          fi
+          echo "AMD Studio: module build file = $MODULE"
+
+      - name: Build signed release APK (assembleRelease)
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          KS_FILE="$RUNNER_TEMP/amd-release.keystore"
+          printf '%s' "$KS_B64" | base64 -d > "$KS_FILE"
+          if [ ! -s "$KS_FILE" ]; then
+            echo '::error::ANDROID_KEYSTORE_BASE64 could not be decoded into a keystore file.'
+            exit 1
+          fi
+          if [ -x ./gradlew ]; then
+            GRADLE=./gradlew
+          else
+            GRADLE=gradle
+          fi
+          "$GRADLE" assembleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file="$KS_FILE" \
+            -Pandroid.injected.signing.store.password="$KS_PASS" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASS"
+
+      - name: Verify the release APK signature
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          APK=$(find . -type f -path '*/build/outputs/apk/release/*.apk' ! -name '*-unsigned.apk' | head -n 1)
+          if [ -z "$APK" ]; then
+            echo '::error::assembleRelease did not produce a release APK.'
+            find . -type f -name '*.apk' -print
+            exit 1
+          fi
+          echo "Release APK: $APK"
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          "$BT/apksigner" verify --print-certs "$APK" | tee "$RUNNER_TEMP/certs.txt"
+          KS_FILE="$RUNNER_TEMP/amd-release.keystore"
+          printf '%s' "$KS_B64" | base64 -d > "$KS_FILE"
+          if [ -x "$JAVA_HOME/bin/keytool" ]; then
+            KEYTOOL="$JAVA_HOME/bin/keytool"
+          else
+            KEYTOOL=keytool
+          fi
+          EXPECTED=$("$KEYTOOL" -list -v -keystore "$KS_FILE" -alias "$KEY_ALIAS" \
+            -storepass "$KS_PASS" 2>/dev/null | sed -n 's/.*SHA256: //p' | head -n 1 \
+            | tr 'A-F' 'a-f' | tr -d ':')
+          ACTUAL=$(sed -n 's/.*SHA-256 digest: //p' "$RUNNER_TEMP/certs.txt" | head -n 1 \
+            | tr 'A-F' 'a-f' | tr -d ':')
+          rm -f "$KS_FILE"
+          if [ -z "$EXPECTED" ]; then
+            echo '::error::Could not read the keystore certificate. Check ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.'
+            exit 1
+          fi
+          if [ "$EXPECTED" != "$ACTUAL" ]; then
+            echo '::error::The release APK is not signed with the keystore from ANDROID_KEYSTORE_BASE64.'
+            echo "expected SHA-256: $EXPECTED"
+            echo "actual   SHA-256: $ACTUAL"
+            exit 1
+          fi
+          mkdir -p artifacts
+          cp "$APK" artifacts/amd-app.apk
+          echo 'APK signed with the AMD release key'
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: amd-app-apk
+          path: artifacts/amd-app.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload build reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: amd-build-reports
+          path: '**/build/reports/**'
+          if-no-files-found: ignore
+          retention-days: 7
