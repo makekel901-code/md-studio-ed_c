@@ -1,0 +1,130 @@
+name: MD Studio Android APK Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_variant:
+        description: APK build variant
+        required: true
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
+      run_tests:
+        description: Run unit tests before packaging
+        required: true
+        type: boolean
+        default: true
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: mdstudio-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Install Android platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+
+      - name: Validate Android project structure
+        run: |
+          test -f settings.gradle || test -f settings.gradle.kts
+          test -f build.gradle || test -f build.gradle.kts
+          test -f app/build.gradle || test -f app/build.gradle.kts
+          test -f app/src/main/AndroidManifest.xml
+
+      - name: Run unit tests
+        if: github.event_name == 'push' || inputs.run_tests
+        run: gradle --no-daemon --stacktrace testDebugUnitTest
+
+      - name: Prepare optional release signing identity
+        if: github.event_name == 'workflow_dispatch' && inputs.build_variant == 'release'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.MDSTUDIO_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.MDSTUDIO_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.MDSTUDIO_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.MDSTUDIO_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mdstudio-release.jks"
+            echo "MDSTUDIO_KEYSTORE_PATH=$RUNNER_TEMP/mdstudio-release.jks" >> "$GITHUB_ENV"
+            echo "MDSTUDIO_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+            echo "MDSTUDIO_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+            echo "MDSTUDIO_KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "No signing secrets supplied; release output will be unsigned."
+          fi
+
+      - name: Build requested APK
+        env:
+          BUILD_VARIANT: ${{ github.event.inputs.build_variant || 'debug' }}
+        run: |
+          if [ "$BUILD_VARIANT" = "release" ]; then
+            gradle --no-daemon --stacktrace :app:assembleRelease
+            if [ -s app/build/outputs/apk/release/app-release.apk ]; then
+              APK_PATH=app/build/outputs/apk/release/app-release.apk
+              ARTIFACT_NAME=MD-Studio-release-apk
+            else
+              APK_PATH=app/build/outputs/apk/release/app-release-unsigned.apk
+              ARTIFACT_NAME=MD-Studio-release-unsigned-apk
+            fi
+          else
+            gradle --no-daemon --stacktrace :app:assembleDebug
+            APK_PATH=app/build/outputs/apk/debug/app-debug.apk
+            ARTIFACT_NAME=MD-Studio-debug-apk
+          fi
+          test -s "$APK_PATH"
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
+          echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> "$GITHUB_ENV"
+
+      - name: Verify APK package
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK_PATH" | head -n 5
+          if [[ "$APK_PATH" == *"unsigned.apk" ]]; then
+            echo "Release APK is unsigned; installation is possible, but signing is required for trusted updates."
+          else
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK_PATH"
+          fi
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ env.APK_PATH }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MD-Studio-unit-test-reports
+          path: '**/build/reports/tests/'
+          if-no-files-found: ignore
+          retention-days: 7
