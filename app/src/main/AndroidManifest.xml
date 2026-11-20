@@ -18,8 +18,8 @@
         android:supportsRtl="true" android:roundIcon="@mipmap/ic_launcher" >
         <!-- amd_screen_guard -->
         <provider
-            android:name="com.amd.mdstudio.github.AmdScreenGuardInit"
-            android:authorities="com.amd.mdstudio.github.amdguard"
+            android:name="com.amd.mdstudio.AmdScreenGuardInit"
+            android:authorities="com.amd.mdstudio.amdguard"
             android:exported="false"
             android:enabled="true" />
         <service android:name=".TermuxResultService" android:exported="false" />
