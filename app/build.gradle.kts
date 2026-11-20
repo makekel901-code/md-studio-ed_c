@@ -19,8 +19,8 @@ android {
         applicationId = "com.amd.mdstudio"
         minSdk = 28
         targetSdk = 35
-        versionCode = 10
-        versionName = "1.0.0-alpha10"
+        versionCode = 10000
+        versionName = "1.0.0"
     }
     signingConfigs {
         create("release") {
